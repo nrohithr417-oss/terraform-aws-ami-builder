@@ -1,4 +1,9 @@
+########################################
+# Locals
+########################################
+
 locals {
+
   name_prefix = "${var.project_name}-${var.environment}"
 
   common_tags = merge(
@@ -6,16 +11,16 @@ locals {
       Project     = var.project_name
       Environment = var.environment
       ManagedBy   = "Terraform"
-      Module      = "ami-builder"
+      Terraform   = "true"
     },
     var.tags
   )
 
-  component_directory = "${path.module}/components"
+  image_recipe_name         = "${local.name_prefix}-recipe"
+  image_pipeline_name       = "${local.name_prefix}-pipeline"
+  image_infrastructure_name = "${local.name_prefix}-infrastructure"
+  image_distribution_name   = "${local.name_prefix}-distribution"
+  image_component_name      = "${local.name_prefix}-component"
 
-  install_component_file    = "${local.component_directory}/install-software.yml"
-  hardening_component_file  = "${local.component_directory}/harden-os.yml"
-  validation_component_file = "${local.component_directory}/validate-ami.yml"
-
-  ami_name = "${var.ami_name_prefix}-${var.environment}-{{ imagebuilder:buildDate }}"
+  ami_name = "${local.name_prefix}-{{ imagebuilder:buildDate }}"
 }

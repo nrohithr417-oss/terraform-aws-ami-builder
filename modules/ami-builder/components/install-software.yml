@@ -1,0 +1,185 @@
+name: InstallRequiredSoftware
+description: Install Docker, Docker Compose, Terraform, SSM Agent, Nginx, Certbot, and OpenSSL
+schemaVersion: 1.0
+
+phases:
+  - name: build
+    steps:
+      - name: UpdateOperatingSystem
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              dnf update -y
+
+      - name: InstallBasePackages
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              dnf install -y \
+                unzip \
+                tar \
+                jq \
+                git \
+                wget \
+                openssl \
+                nginx \
+                docker \
+                python3 \
+                python3-pip \
+                amazon-ssm-agent
+
+      - name: InstallDockerCompose
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              architecture="$(uname -m)"
+
+              case "${architecture}" in
+                x86_64)
+                  compose_arch="x86_64"
+                  ;;
+                aarch64)
+                  compose_arch="aarch64"
+                  ;;
+                *)
+                  echo "Unsupported architecture: ${architecture}"
+                  exit 1
+                  ;;
+              esac
+
+              compose_directory="/usr/local/lib/docker/cli-plugins"
+              compose_binary="${compose_directory}/docker-compose"
+
+              mkdir -p "${compose_directory}"
+
+              curl \
+                --fail \
+                --silent \
+                --show-error \
+                --location \
+                --retry 5 \
+                --retry-delay 3 \
+                "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-${compose_arch}" \
+                --output "${compose_binary}"
+
+              chmod 0755 "${compose_binary}"
+
+              ln -sfn \
+                "${compose_binary}" \
+                /usr/local/bin/docker-compose
+
+      - name: InstallTerraform
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              dnf install -y dnf-plugins-core
+
+              if [ ! -f /etc/yum.repos.d/hashicorp.repo ]; then
+                dnf config-manager --add-repo \
+                  https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+              fi
+
+              dnf install -y terraform
+
+      - name: InstallCertbot
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              python3 -m pip install \
+                --no-cache-dir \
+                --upgrade \
+                certbot \
+                certbot-nginx
+
+              certbot_path="$(command -v certbot)"
+
+              if [ -n "${certbot_path}" ]; then
+                ln -sfn "${certbot_path}" /usr/local/bin/certbot
+              fi
+
+      - name: ConfigureServices
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              systemctl enable --now docker
+              systemctl enable --now nginx
+              systemctl enable --now amazon-ssm-agent
+
+      - name: ConfigureDockerGroup
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              getent group docker >/dev/null 2>&1 || groupadd docker
+
+              if id ec2-user >/dev/null 2>&1; then
+                usermod -aG docker ec2-user
+              fi
+
+      - name: CleanPackageCache
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              dnf clean all
+              rm -rf /var/cache/dnf
+
+  - name: validate
+    steps:
+      - name: ValidateInstalledSoftware
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              command -v curl
+              command -v docker
+              command -v docker-compose
+              command -v terraform
+              command -v amazon-ssm-agent
+              command -v nginx
+              command -v openssl
+              command -v certbot
+
+              curl --version
+              docker --version
+              docker compose version
+              docker-compose version
+              terraform version
+              amazon-ssm-agent --version
+              nginx -v
+              openssl version
+              certbot --version
+
+              systemctl is-enabled docker
+              systemctl is-enabled nginx
+              systemctl is-enabled amazon-ssm-agent
+
+              systemctl is-active docker
+              systemctl is-active nginx
+              systemctl is-active amazon-ssm-agent
+
+              nginx -t

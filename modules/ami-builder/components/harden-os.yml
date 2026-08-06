@@ -1,0 +1,111 @@
+name: HardenOperatingSystem
+description: Apply baseline operating-system security hardening
+schemaVersion: 1.0
+
+phases:
+  - name: build
+    steps:
+      - name: InstallSecurityUpdates
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+              dnf update --security -y || dnf update -y
+
+      - name: HardenSSH
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              mkdir -p /etc/ssh/sshd_config.d
+
+              cat > /etc/ssh/sshd_config.d/99-image-builder-hardening.conf <<'EOF'
+              PermitRootLogin no
+              PasswordAuthentication no
+              KbdInteractiveAuthentication no
+              X11Forwarding no
+              MaxAuthTries 3
+              ClientAliveInterval 300
+              ClientAliveCountMax 2
+              EOF
+
+              sshd -t
+
+      - name: ConfigureKernelSecurity
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              cat > /etc/sysctl.d/99-image-builder-hardening.conf <<'EOF'
+              net.ipv4.conf.all.accept_redirects = 0
+              net.ipv4.conf.default.accept_redirects = 0
+              net.ipv4.conf.all.send_redirects = 0
+              net.ipv4.conf.default.send_redirects = 0
+              net.ipv4.conf.all.accept_source_route = 0
+              net.ipv4.conf.default.accept_source_route = 0
+              net.ipv4.tcp_syncookies = 1
+              kernel.randomize_va_space = 2
+              fs.suid_dumpable = 0
+              EOF
+
+              sysctl --system
+
+      - name: SetFilePermissions
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              chmod 0644 /etc/passwd
+              chmod 0644 /etc/group
+              chmod 0000 /etc/shadow
+              chmod 0000 /etc/gshadow
+
+      - name: DisableCoreDumps
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              cat > /etc/security/limits.d/99-disable-core-dumps.conf <<'EOF'
+              * hard core 0
+              EOF
+
+      - name: CleanTemporaryFiles
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              rm -rf /tmp/*
+              rm -rf /var/tmp/*
+              dnf clean all
+
+  - name: validate
+    steps:
+      - name: ValidateHardening
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              sshd -t
+              test "$(sysctl -n net.ipv4.conf.all.accept_redirects)" = "0"
+              test "$(sysctl -n net.ipv4.conf.all.send_redirects)" = "0"
+              test "$(sysctl -n net.ipv4.tcp_syncookies)" = "1"
+              test "$(sysctl -n kernel.randomize_va_space)" = "2"
+
+              grep -Eq '^PermitRootLogin no$' \
+                /etc/ssh/sshd_config.d/99-image-builder-hardening.conf
+
+              grep -Eq '^PasswordAuthentication no$' \
+                /etc/ssh/sshd_config.d/99-image-builder-hardening.conf

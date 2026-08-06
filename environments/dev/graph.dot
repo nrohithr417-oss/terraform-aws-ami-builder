@@ -1,0 +1,29 @@
+digraph G {
+  rankdir = "RL";
+  node [shape = rect, fontname = "sans-serif"];
+  subgraph "cluster_module.ami_builder" {
+    label = "module.ami_builder"
+    fontname = "sans-serif"
+    "module.ami_builder.data.aws_ami.ubuntu" [label="data.aws_ami.ubuntu"];
+    "module.ami_builder.aws_iam_instance_profile.image_builder" [label="aws_iam_instance_profile.image_builder"];
+    "module.ami_builder.aws_iam_role.image_builder" [label="aws_iam_role.image_builder"];
+    "module.ami_builder.aws_iam_role_policy_attachment.cloudwatch" [label="aws_iam_role_policy_attachment.cloudwatch"];
+    "module.ami_builder.aws_iam_role_policy_attachment.image_builder" [label="aws_iam_role_policy_attachment.image_builder"];
+    "module.ami_builder.aws_iam_role_policy_attachment.ssm" [label="aws_iam_role_policy_attachment.ssm"];
+    "module.ami_builder.aws_imagebuilder_component.software_installation" [label="aws_imagebuilder_component.software_installation"];
+    "module.ami_builder.aws_imagebuilder_distribution_configuration.this" [label="aws_imagebuilder_distribution_configuration.this"];
+    "module.ami_builder.aws_imagebuilder_image_pipeline.this" [label="aws_imagebuilder_image_pipeline.this"];
+    "module.ami_builder.aws_imagebuilder_image_recipe.this" [label="aws_imagebuilder_image_recipe.this"];
+    "module.ami_builder.aws_imagebuilder_infrastructure_configuration.this" [label="aws_imagebuilder_infrastructure_configuration.this"];
+  }
+  "module.ami_builder.aws_iam_instance_profile.image_builder" -> "module.ami_builder.aws_iam_role_policy_attachment.image_builder";
+  "module.ami_builder.aws_iam_instance_profile.image_builder" -> "module.ami_builder.aws_iam_role_policy_attachment.ssm";
+  "module.ami_builder.aws_iam_role_policy_attachment.image_builder" -> "module.ami_builder.aws_iam_role.image_builder";
+  "module.ami_builder.aws_iam_role_policy_attachment.ssm" -> "module.ami_builder.aws_iam_role.image_builder";
+  "module.ami_builder.aws_imagebuilder_image_pipeline.this" -> "module.ami_builder.aws_imagebuilder_distribution_configuration.this";
+  "module.ami_builder.aws_imagebuilder_image_pipeline.this" -> "module.ami_builder.aws_imagebuilder_image_recipe.this";
+  "module.ami_builder.aws_imagebuilder_image_pipeline.this" -> "module.ami_builder.aws_imagebuilder_infrastructure_configuration.this";
+  "module.ami_builder.aws_imagebuilder_image_recipe.this" -> "module.ami_builder.data.aws_ami.ubuntu";
+  "module.ami_builder.aws_imagebuilder_image_recipe.this" -> "module.ami_builder.aws_imagebuilder_component.software_installation";
+  "module.ami_builder.aws_imagebuilder_infrastructure_configuration.this" -> "module.ami_builder.aws_iam_instance_profile.image_builder";
+}

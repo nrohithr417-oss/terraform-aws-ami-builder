@@ -5,11 +5,14 @@
 resource "aws_iam_role" "image_builder" {
   name = "${local.name_prefix}-image-builder-role"
 
+  description = "IAM role used by EC2 instances launched by EC2 Image Builder"
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
 
     Statement = [
       {
+        Sid    = "AllowEC2AssumeRole"
         Effect = "Allow"
 
         Principal = {
@@ -25,34 +28,35 @@ resource "aws_iam_role" "image_builder" {
 }
 
 ########################################
-# EC2 Instance Profile
+# EC2 Image Builder Managed Policy
 ########################################
 
-resource "aws_iam_instance_profile" "image_builder" {
-  name = "${local.name_prefix}-instance-profile"
-  role = aws_iam_role.image_builder.name
-
-  tags = local.common_tags
-}
-
-########################################
-# IAM Policy Attachments
-########################################
-
-# EC2 Image Builder
 resource "aws_iam_role_policy_attachment" "image_builder" {
   role       = aws_iam_role.image_builder.name
   policy_arn = "arn:aws:iam::aws:policy/EC2InstanceProfileForImageBuilder"
 }
 
-# AWS Systems Manager (SSM)
+########################################
+# AWS Systems Manager Managed Policy
+########################################
+
 resource "aws_iam_role_policy_attachment" "ssm" {
   role       = aws_iam_role.image_builder.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-# CloudWatch Agent
-resource "aws_iam_role_policy_attachment" "cloudwatch" {
-  role       = aws_iam_role.image_builder.name
-  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+########################################
+# EC2 Instance Profile
+########################################
+
+resource "aws_iam_instance_profile" "image_builder" {
+  name = "${local.name_prefix}-image-builder-profile"
+  role = aws_iam_role.image_builder.name
+
+  tags = local.common_tags
+
+  depends_on = [
+    aws_iam_role_policy_attachment.image_builder,
+    aws_iam_role_policy_attachment.ssm
+  ]
 }

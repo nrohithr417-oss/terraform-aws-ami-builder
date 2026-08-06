@@ -1,24 +1,24 @@
 ########################################
 # EC2 Image Builder Infrastructure
+# Configuration
 ########################################
 
 resource "aws_imagebuilder_infrastructure_configuration" "this" {
-  name        = "${local.name_prefix}-infrastructure"
-  description = "Infrastructure configuration for building the ${local.name_prefix} AMI"
+  name        = local.image_infrastructure_name
+  description = "Infrastructure configuration for building the custom ${var.project_name} AMI"
 
   instance_profile_name = aws_iam_instance_profile.image_builder.name
-  instance_types        = [var.instance_type]
 
-  subnet_id          = var.subnet_id
-  security_group_ids = length(var.security_group_ids) > 0 ? var.security_group_ids : null
+  instance_types = [
+    var.instance_type
+  ]
 
-  terminate_instance_on_failure = var.terminate_instance_on_failure
+  terminate_instance_on_failure = true
 
   tags = local.common_tags
 
   depends_on = [
     aws_iam_role_policy_attachment.image_builder,
-    aws_iam_role_policy_attachment.ssm,
-    aws_iam_role_policy_attachment.cloudwatch
+    aws_iam_role_policy_attachment.ssm
   ]
 }

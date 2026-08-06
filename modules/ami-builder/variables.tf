@@ -33,16 +33,37 @@ variable "ami_version" {
   }
 }
 
+variable "component_version" {
+  description = "Semantic version assigned to Image Builder components"
+  type        = string
+  default     = "1.0.0"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.component_version))
+    error_message = "Component version must use semantic version format, such as 1.0.0."
+  }
+}
+
 variable "parent_image" {
-  description = "Base AMI ARN or Image Builder managed image ARN"
+  description = "Base AMI ID, Image Builder image ARN, or SSM parameter reference"
   type        = string
   default     = "arn:aws:imagebuilder:ap-south-1:aws:image/amazon-linux-2023-x86/x.x.x"
+
+  validation {
+    condition     = length(trimspace(var.parent_image)) > 0
+    error_message = "Parent image must not be empty."
+  }
 }
 
 variable "instance_type" {
-  description = "EC2 instance type used temporarily during the AMI build"
+  description = "EC2 instance type temporarily used during the AMI build"
   type        = string
   default     = "t3.small"
+
+  validation {
+    condition     = length(trimspace(var.instance_type)) > 0
+    error_message = "Instance type must not be empty."
+  }
 }
 
 variable "root_volume_size" {
@@ -61,12 +82,30 @@ variable "subnet_id" {
   type        = string
   default     = null
   nullable    = true
+
+  validation {
+    condition = (
+      var.subnet_id == null ||
+      can(regex("^subnet-[0-9a-fA-F]+$", var.subnet_id))
+    )
+
+    error_message = "Subnet ID must be null or a valid value beginning with subnet-."
+  }
 }
 
 variable "security_group_ids" {
   description = "Security group IDs assigned to the temporary Image Builder instance"
   type        = list(string)
   default     = []
+
+  validation {
+    condition = alltrue([
+      for security_group_id in var.security_group_ids :
+      can(regex("^sg-[0-9a-fA-F]+$", security_group_id))
+    ])
+
+    error_message = "Every security group ID must begin with sg-."
+  }
 }
 
 variable "terminate_instance_on_failure" {
@@ -85,6 +124,15 @@ variable "pipeline_schedule_expression" {
   description = "Schedule expression used to run the Image Builder pipeline"
   type        = string
   default     = "cron(0 2 ? * SUN *)"
+
+  validation {
+    condition = (
+      startswith(var.pipeline_schedule_expression, "cron(") ||
+      startswith(var.pipeline_schedule_expression, "rate(")
+    )
+
+    error_message = "Pipeline schedule must be a valid cron(...) or rate(...) expression."
+  }
 }
 
 variable "distribution_regions" {
@@ -93,8 +141,15 @@ variable "distribution_regions" {
   default     = ["ap-south-1"]
 
   validation {
-    condition     = length(var.distribution_regions) > 0
-    error_message = "At least one AMI distribution region must be provided."
+    condition = (
+      length(var.distribution_regions) > 0 &&
+      alltrue([
+        for region in var.distribution_regions :
+        can(regex("^[a-z]{2}(-gov)?-[a-z]+-[0-9]+$", region))
+      ])
+    )
+
+    error_message = "Provide at least one valid AWS region, such as ap-south-1."
   }
 }
 
@@ -102,22 +157,21 @@ variable "ami_name_prefix" {
   description = "Prefix used when naming generated AMIs"
   type        = string
   default     = "custom-linux-ami"
+
+  validation {
+    condition     = length(trimspace(var.ami_name_prefix)) >= 3
+    error_message = "AMI name prefix must contain at least 3 characters."
+  }
 }
 
 variable "ssm_parameter_name" {
   description = "SSM Parameter Store name used to publish the latest AMI ID"
   type        = string
   default     = "/ami-builder/dev/latest-ami-id"
-}
-
-variable "component_version" {
-  description = "Version assigned to Image Builder components"
-  type        = string
-  default     = "1.0.0"
 
   validation {
-    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.component_version))
-    error_message = "Component version must use semantic version format, such as 1.0.0."
+    condition     = startswith(var.ssm_parameter_name, "/")
+    error_message = "SSM parameter name must begin with a forward slash."
   }
 }
 

@@ -1,0 +1,82 @@
+name: ValidateCustomAMI
+description: Test required software, services, and security settings
+schemaVersion: 1.0
+
+phases:
+  - name: test
+    steps:
+      - name: TestInstalledCommands
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              command -v docker
+              command -v docker-compose
+              command -v terraform
+              command -v amazon-ssm-agent
+              command -v nginx
+              command -v openssl
+              command -v certbot
+
+              docker --version
+              docker compose version
+              terraform version
+              amazon-ssm-agent --version
+              nginx -v
+              openssl version
+              certbot --version
+
+      - name: TestRequiredServices
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              systemctl is-enabled docker
+              systemctl is-enabled nginx
+              systemctl is-enabled amazon-ssm-agent
+
+              systemctl is-active docker
+              systemctl is-active nginx
+              systemctl is-active amazon-ssm-agent
+
+      - name: TestNginx
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              nginx -t
+              curl --fail --retry 5 --retry-delay 2 http://127.0.0.1/
+
+      - name: TestDocker
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              docker info
+              docker compose version
+
+      - name: TestSecurityConfiguration
+        action: ExecuteBash
+        inputs:
+          commands:
+            - |
+              set -euo pipefail
+
+              sshd -t
+              test "$(sysctl -n net.ipv4.conf.all.accept_redirects)" = "0"
+              test "$(sysctl -n net.ipv4.tcp_syncookies)" = "1"
+              test "$(sysctl -n kernel.randomize_va_space)" = "2"
+
+              grep -Eq '^PermitRootLogin no$' \
+                /etc/ssh/sshd_config.d/99-image-builder-hardening.conf
+
+              grep -Eq '^PasswordAuthentication no$' \
+                /etc/ssh/sshd_config.d/99-image-builder-hardening.conf
