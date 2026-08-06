@@ -1,19 +1,4 @@
 ########################################
-# AWS Region
-########################################
-
-variable "aws_region" {
-  description = "AWS region where the AMI Builder resources will be created"
-  type        = string
-  default     = "ap-south-1"
-
-  validation {
-    condition     = can(regex("^[a-z]{2}(-gov)?-[a-z]+-[0-9]+$", var.aws_region))
-    error_message = "The AWS region must be valid, such as ap-south-1."
-  }
-}
-
-########################################
 # Project Configuration
 ########################################
 
@@ -50,11 +35,11 @@ variable "environment" {
 variable "ami_version" {
   description = "Version of the Image Builder recipe"
   type        = string
-  default     = "1.0.0"
+  default     = "1.0.1"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.ami_version))
-    error_message = "AMI version must use semantic version format, such as 1.0.0."
+    error_message = "AMI version must use semantic version format, such as 1.0.1."
   }
 }
 
