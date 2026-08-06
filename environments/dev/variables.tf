@@ -5,6 +5,84 @@ variable "aws_region" {
 
   validation {
     condition     = can(regex("^[a-z]{2}(-gov)?-[a-z]+-[0-9]+$", var.aws_region))
-    error_message = "The AWS region must be a valid region such as ap-south-1."
+    error_message = "The AWS region must be valid, such as ap-south-1."
   }
+}
+
+variable "project_name" {
+  description = "Project name"
+  type        = string
+  default     = "terraform-ami-builder"
+}
+
+variable "environment" {
+  description = "Deployment environment"
+  type        = string
+  default     = "dev"
+
+  validation {
+    condition = contains(
+      ["dev", "qa", "stage", "prod"],
+      var.environment
+    )
+
+    error_message = "Environment must be dev, qa, stage, or prod."
+  }
+}
+
+variable "ami_version" {
+  description = "Version of the Image Builder recipe"
+  type        = string
+  default     = "1.0.0"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.ami_version))
+    error_message = "AMI version must use a format such as 1.0.0."
+  }
+}
+
+variable "instance_type" {
+  description = "Temporary EC2 instance type used during the AMI build"
+  type        = string
+  default     = "t3.small"
+}
+
+variable "root_volume_size" {
+  description = "AMI root volume size in GiB"
+  type        = number
+  default     = 20
+
+  validation {
+    condition     = var.root_volume_size >= 8 && var.root_volume_size <= 100
+    error_message = "Root volume size must be between 8 and 100 GiB."
+  }
+}
+
+variable "pipeline_enabled" {
+  description = "Enable the Image Builder pipeline"
+  type        = bool
+  default     = true
+}
+
+variable "pipeline_schedule_expression" {
+  description = "Image Builder pipeline schedule"
+  type        = string
+  default     = "cron(0 2 ? * SUN *)"
+}
+
+variable "distribution_regions" {
+  description = "Regions where the completed AMI will be distributed"
+  type        = list(string)
+  default     = ["ap-south-1"]
+
+  validation {
+    condition     = length(var.distribution_regions) > 0
+    error_message = "At least one distribution region must be provided."
+  }
+}
+
+variable "tags" {
+  description = "Additional resource tags"
+  type        = map(string)
+  default     = {}
 }
